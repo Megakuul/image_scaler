@@ -1,11 +1,17 @@
 import 'dart:typed_data';
-import 'dart:ui';
+
+class IntSize {
+  final int width;
+  final int height;
+
+  const IntSize(this.width, this.height);
+}
 
 class ScaleArguments {
   final Uint8List iByteBuf;
   final Uint8List oByteBuf;
-  final Size iSize;
-  final Size oSize;
+  final IntSize iSize;
+  final IntSize oSize;
   final int colorBlockSize;
   final int areaSize;
 

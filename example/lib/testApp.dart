@@ -1,10 +1,11 @@
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:image_scaler/image_scaler.dart';
+import 'package:image_scaler/types.dart';
 
-const defaultSize = Size(200,200);
+const defaultSize = IntSize(200,200);
 const defaultAreaRad = 1.0;
-const defaultAlgorithm = ScaleAlgorithm.nni;
+const defaultAlgorithm = ScaleAlgorithm.lanczos;
 
 class TestApp extends StatefulWidget {
   final ui.Image round;
@@ -18,7 +19,7 @@ class TestApp extends StatefulWidget {
 }
 
 class _TestAppState extends State<TestApp> {
-  ui.Size size = defaultSize;
+  IntSize size = defaultSize;
   double areaRad = defaultAreaRad;
   ScaleAlgorithm algo = defaultAlgorithm;
 
@@ -28,13 +29,30 @@ class _TestAppState extends State<TestApp> {
   late Future<ui.Image> scaledShapes;
   late Future<ui.Image> scaledLines;
 
+  late DateTime timeBuf;
+
+  final ValueNotifier<Duration> roundDurNotifier = ValueNotifier(Duration.zero);
+  final ValueNotifier<Duration> shapesDurNotifier = ValueNotifier(Duration.zero);
+  final ValueNotifier<Duration> linesDurNotifier = ValueNotifier(Duration.zero);
+
+  void startTimer() {
+    timeBuf = DateTime.now();
+  }
+
   void originalImages() {
     scaledRound = Future.value(widget.round);
     scaledShapes = Future.value(widget.shapes);
     scaledLines = Future.value(widget.lines);
+    startTimer();
   }
 
   void rescaleImages() {
+    scaledRound = scale(
+        image: widget.round,
+        newSize: const IntSize(200, 200),
+        algorithm: ScaleAlgorithm.megak,
+        areaRadius: 2
+    );
     scaledRound = scale(
       image: widget.round,
       newSize: size,
@@ -53,6 +71,7 @@ class _TestAppState extends State<TestApp> {
       algorithm: algo,
       areaRadius: areaRad.toInt()
     );
+    startTimer();
   }
 
   @override
@@ -75,12 +94,77 @@ class _TestAppState extends State<TestApp> {
                 crossAxisAlignment: CrossAxisAlignment.center,
                 mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: [
-                  ImageView(scaledRound),
-                  ImageView(scaledShapes),
-                  ImageView(scaledLines),
+                  ImageView(scaledRound, roundDurNotifier, timeBuf),
+                  ImageView(scaledShapes, shapesDurNotifier, timeBuf),
+                  ImageView(scaledLines, linesDurNotifier, timeBuf),
                 ],
               ),
             ),
+          ),
+          const Text(
+            "Duration (ms):",
+            style: TextStyle(color: Colors.white),
+            textAlign: TextAlign.center
+          ),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                margin: const EdgeInsets.all(10),
+                padding: const EdgeInsets.all(10),
+                width: 75,
+                decoration: BoxDecoration(
+                  color: Colors.grey,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: ValueListenableBuilder(
+                  valueListenable: roundDurNotifier,
+                  builder: (context, value, child) {
+                    return Text(
+                      "${value.inMilliseconds.round()}",
+                      textAlign: TextAlign.center,
+                    );
+                  },
+                )
+              ),
+              Container(
+                margin: const EdgeInsets.all(10),
+                padding: const EdgeInsets.all(10),
+                width: 75,
+                decoration: BoxDecoration(
+                  color: Colors.grey,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: ValueListenableBuilder(
+                  valueListenable: shapesDurNotifier,
+                  builder: (context, value, child) {
+                    return Text(
+                      "${value.inMilliseconds.round()}",
+                      textAlign: TextAlign.center,
+                    );
+                  },
+                )
+              ),
+              Container(
+                margin: const EdgeInsets.all(10),
+                padding: const EdgeInsets.all(10),
+                width: 75,
+                decoration: BoxDecoration(
+                  color: Colors.grey,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: ValueListenableBuilder(
+                  valueListenable: linesDurNotifier,
+                  builder: (context, value, child) {
+                    return Text(
+                      "${value.inMilliseconds.round()}",
+                      textAlign: TextAlign.center,
+                    );
+                  },
+                )
+              )
+            ]
           ),
           Row(
             crossAxisAlignment: CrossAxisAlignment.center,
@@ -107,10 +191,10 @@ class _TestAppState extends State<TestApp> {
                 max: 1000,
                 min: 1,
                 divisions: 999,
-                value: size.width,
+                value: size.width.toDouble(),
                 onChanged: (v) {
                   setState(() {
-                    size = Size(v, size.height);
+                    size = IntSize(v.toInt(), size.height);
                   });
                 },
                 onChangeEnd: (v) {
@@ -123,10 +207,10 @@ class _TestAppState extends State<TestApp> {
                 max: 1000,
                 min: 1,
                 divisions: 999,
-                value: size.height,
+                value: size.height.toDouble(),
                 onChanged: (v) {
                   setState(() {
-                    size = Size(size.width, v);
+                    size = IntSize(size.width, v.toInt());
                   });
                 },
                 onChangeEnd: (v) {
@@ -176,15 +260,32 @@ class _TestAppState extends State<TestApp> {
   }
 }
 
-class ImageView extends StatelessWidget {
-  late Future<ui.Image> image;
+class ImageView extends StatefulWidget {
+  final Future<ui.Image> image;
+  final ValueNotifier<Duration> durationNotifier;
+  final DateTime timeBuf;
 
-  ImageView(this.image, {super.key});
+  const ImageView(this.image, this.durationNotifier, this.timeBuf, {Key? key}) : super(key: key);
+
+  @override
+  State<ImageView> createState() => _ImageViewState();
+}
+
+class _ImageViewState extends State<ImageView> {
+  bool _shouldUpdateDuration = true;
+
+  @override
+  void didUpdateWidget(ImageView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.image != widget.image) {
+      _shouldUpdateDuration = true;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return FutureBuilder<ui.Image>(
-      future: image,
+      future: widget.image,
       builder: (BuildContext context, AsyncSnapshot<ui.Image> snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const CircularProgressIndicator();
@@ -192,16 +293,22 @@ class ImageView extends StatelessWidget {
           return Container(
             padding: const EdgeInsets.all(12),
             constraints: BoxConstraints(
-              maxHeight: MediaQuery.of(context).size.height / 3,
-              maxWidth: MediaQuery.of(context).size.width / 4
+                maxHeight: MediaQuery.of(context).size.height / 3,
+                maxWidth: MediaQuery.of(context).size.width / 4
             ),
             decoration: BoxDecoration(
-              color: Colors.red,
-              borderRadius: BorderRadius.circular(12)
+                color: Colors.red,
+                borderRadius: BorderRadius.circular(12)
             ),
             child: Text('Error: ${snapshot.error}', style: const TextStyle(color: Colors.white)),
           );
         } else {
+          if (_shouldUpdateDuration) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              widget.durationNotifier.value = DateTime.now().difference(widget.timeBuf);
+              _shouldUpdateDuration = false;  // Reset flag to prevent further updates until image changes again.
+            });
+          }
           return RawImage(
             image: snapshot.data,
             fit: BoxFit.cover,
@@ -211,3 +318,4 @@ class ImageView extends StatelessWidget {
     );
   }
 }
+
