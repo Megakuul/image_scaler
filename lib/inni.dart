@@ -65,7 +65,7 @@ ScaleArguments inni(ScaleArguments args) {
             ? args.iSize.height-iAreaTLAnchor.y : maxAreaDiameter;
 
       int avgDivider = 0;
-      Uint32List rgbStack = Uint32List(args.colorBlockSize);
+      rgbStack = Uint32List(args.colorBlockSize);
 
       for (int wx = iAreaTLAnchor.x; wx < areaWidth+iAreaTLAnchor.x; wx++) {
         for (int wy = iAreaTLAnchor.y; wy < areaHeight+iAreaTLAnchor.y; wy++) {

@@ -1,7 +1,7 @@
 name: image_scaler
 description: Light weight library to rescale *dart:ui* Images.
 version: 0.0.1
-homepage:
+repository: https://github.com/Megakuul/image_scaler
 
 environment:
   sdk: '>=3.1.1 <4.0.0'
